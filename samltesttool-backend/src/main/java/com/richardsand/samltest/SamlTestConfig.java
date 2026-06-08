@@ -14,6 +14,16 @@ public class SamlTestConfig extends Configuration {
         String adminPwd;
     }
 
+    @Getter
+    public static class Tenant {
+        String tenantUrl;
+        String apiKey;
+        String apiSecret;
+    }
+
     @JsonProperty
     Database database;
+
+    @JsonProperty
+    Tenant tenant;
 }

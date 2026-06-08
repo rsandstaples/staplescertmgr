@@ -1,5 +1,6 @@
 package com.richardsand.samltest;
 
+import java.net.http.HttpClient;
 import java.sql.SQLException;
 import java.time.Duration;
 
@@ -11,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.richardsand.samltest.health.DataSourceHealthCheck;
+import com.richardsand.samltest.resources.AicLogResource;
 import com.richardsand.samltest.resources.MetadataResource;
+import com.richardsand.samltest.services.AicLogService;
 
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
@@ -92,6 +95,20 @@ public class SamlTestServer extends Application<SamlTestConfig> {
 //                bind(projectDao).to(ProjectDao.class);
                 
         }});
+        
+        HttpClient http = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
+
+        AicLogService logService = new AicLogService(
+                http,
+                mapper,
+                config.getTenant().getTenantUrl(),
+                config.getTenant().getApiKey(),
+                config.getTenant().getApiSecret()
+        );
+
+        env.jersey().register(new AicLogResource(logService));        
 
         // Health checks
         env.healthChecks().register("database", new DataSourceHealthCheck(ds));
