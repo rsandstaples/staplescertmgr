@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.richardsand.samltest.model.AicLogResult;
 import com.richardsand.samltest.services.AicLogService;
 
@@ -18,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/api/aic/logs")
 @Produces(MediaType.APPLICATION_JSON)
 public class AicLogResource {
+	static final Logger logger = LoggerFactory.getLogger(AicLogResource.class);
     public record AicLogBatchRequest(List<String> transactionIds) {
     }
 
@@ -45,7 +49,9 @@ public class AicLogResource {
                 .distinct()
                 .map((String transactionId) -> {
                     try {
-                        return logService.query(transactionId);
+                        AicLogResult result = logService.query(transactionId);
+                        logger.info("{}", result);
+                        return result;
                     } catch (Exception e) {
                         return AicLogResult.failed(transactionId, e.getMessage());
                     }
