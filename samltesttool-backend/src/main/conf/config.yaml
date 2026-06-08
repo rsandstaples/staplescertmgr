@@ -1,0 +1,34 @@
+# DropWizard
+server:
+  applicationConnectors:
+    - type: http
+      port: 8080
+  adminConnectors:
+    - type: http
+      port: 8081
+  requestLog:
+    appenders:
+      - type: console
+        target: stdout
+        threshold: INFO
+        timeZone: America/New_York
+        logFormat: "%t{yyyy-MM-dd HH:mm:ss} [REQUEST][%clientHost][%m][%U%q] - %s %bytesSent %elapsedTime ms"
+
+logging:
+  level: DEBUG
+  loggers:
+    io.netty: INFO
+    org.eclipse.jetty: INFO
+    reactor.netty: INFO
+  appenders:
+    - type: console
+      logFormat: "%d{yyyy-MM-dd HH:mm:ss} [%level][%X{ctx}][%logger{36}] - [%msg]%n"
+      timeZone: America/New_York
+
+# Application
+
+database:
+  #url: jdbc:postgresql://localhost:5432/postgres
+  adminUser: admin
+  adminPwd: admin123
+  url: jdbc:h2:C:/dev/temp/samltooldb;MODE=PostgreSQL;AUTO_SERVER=TRUE
