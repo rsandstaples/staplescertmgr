@@ -16,6 +16,8 @@ import com.richardsand.samltest.resources.AicLogResource;
 import com.richardsand.samltest.resources.MetadataResource;
 import com.richardsand.samltest.services.AicLogService;
 
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
@@ -28,6 +30,10 @@ public class SamlTestServer extends Application<SamlTestConfig> {
 
     @Override
     public void initialize(Bootstrap<SamlTestConfig> bootstrap) {
+        bootstrap.setConfigurationSourceProvider(
+                new SubstitutingSourceProvider(
+                        bootstrap.getConfigurationSourceProvider(),
+                        new EnvironmentVariableSubstitutor(false)));
     }
 
     @Override
@@ -77,7 +83,6 @@ public class SamlTestServer extends Application<SamlTestConfig> {
 
         // DAOs
 
-        
         // Resources
         env.jersey().register(MetadataResource.class);
 
@@ -93,9 +98,10 @@ public class SamlTestServer extends Application<SamlTestConfig> {
                 bind(mapper).to(ObjectMapper.class);
                 bind(config).to(SamlTestConfig.class);
 //                bind(projectDao).to(ProjectDao.class);
-                
-        }});
-        
+
+            }
+        });
+
         HttpClient http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
                 .build();
@@ -105,10 +111,9 @@ public class SamlTestServer extends Application<SamlTestConfig> {
                 mapper,
                 config.getTenant().getTenantUrl(),
                 config.getTenant().getApiKey(),
-                config.getTenant().getApiSecret()
-        );
+                config.getTenant().getApiSecret());
 
-        env.jersey().register(new AicLogResource(logService));        
+        env.jersey().register(new AicLogResource(logService));
 
         // Health checks
         env.healthChecks().register("database", new DataSourceHealthCheck(ds));
