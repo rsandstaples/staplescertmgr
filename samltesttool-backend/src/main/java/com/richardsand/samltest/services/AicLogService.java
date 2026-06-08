@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +17,10 @@ import com.richardsand.samltest.model.AicLogResult;
 import com.richardsand.samltest.model.AicLogResult.AicLogOutcome;
 
 public class AicLogService {
+
+    private static final int      MAX_ATTEMPTS = 5;
+    private static final Duration BASE_BACKOFF = Duration.ofMillis(500);
+    private static final Duration MAX_BACKOFF  = Duration.ofSeconds(10);
 
     private final HttpClient   http;
     private final ObjectMapper mapper;
@@ -61,22 +66,92 @@ public class AicLogService {
                     .GET()
                     .build();
 
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request);
 
             if (response.statusCode() != 200) {
                 return AicLogResult.failed(
                         transactionId,
                         "AIC log query returned HTTP "
                                 + response.statusCode()
-                                + ": "
+                                + " after retry attempts: "
                                 + response.body());
             }
 
             return parse(transactionId, response.body());
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AicLogResult.failed(transactionId, "Interrupted during AIC log query retry backoff");
         } catch (Exception e) {
             return AicLogResult.failed(transactionId, e.getMessage());
         }
+    }
+
+    private HttpResponse<String> sendWithRetry(HttpRequest request) throws Exception {
+        HttpResponse<String> response = null;
+
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (!shouldRetry(response.statusCode())) {
+                return response;
+            }
+
+            if (attempt == MAX_ATTEMPTS) {
+                return response;
+            }
+
+            Duration delay = retryDelay(response, attempt);
+            Thread.sleep(delay.toMillis());
+        }
+
+        return response;
+    }
+
+    private boolean shouldRetry(int statusCode) {
+        return statusCode == 429
+                || statusCode == 500
+                || statusCode == 502
+                || statusCode == 503
+                || statusCode == 504;
+    }
+
+    private Duration retryDelay(HttpResponse<String> response, int attempt) {
+        return response.headers()
+                .firstValue("Retry-After")
+                .map(this::parseRetryAfter)
+                .orElseGet(() -> exponentialBackoffWithJitter(attempt));
+    }
+
+    private Duration parseRetryAfter(String value) {
+        try {
+            long seconds = Long.parseLong(value.trim());
+            return clamp(Duration.ofSeconds(seconds));
+        } catch (NumberFormatException e) {
+            return BASE_BACKOFF;
+        }
+    }
+
+    private Duration exponentialBackoffWithJitter(int attempt) {
+        long exponentialMillis = BASE_BACKOFF.toMillis() * (1L << (attempt - 1));
+        long cappedMillis      = Math.min(exponentialMillis, MAX_BACKOFF.toMillis());
+
+        long jitterMillis = ThreadLocalRandom.current()
+                .nextLong(0, Math.max(1, cappedMillis / 2));
+
+        return Duration.ofMillis(cappedMillis + jitterMillis);
+    }
+
+    private Duration clamp(Duration duration) {
+        if (duration.compareTo(BASE_BACKOFF) < 0) {
+            return BASE_BACKOFF;
+        }
+
+        if (duration.compareTo(MAX_BACKOFF) > 0) {
+            return MAX_BACKOFF;
+        }
+
+        return duration;
     }
 
     private AicLogResult parse(String transactionId, String body) throws Exception {
