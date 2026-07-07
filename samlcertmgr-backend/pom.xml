@@ -12,18 +12,15 @@
 	<packaging>jar</packaging>
 
 	<properties>
-		<apache-dbcp2.version>2.13.0</apache-dbcp2.version>
 		<commons-beanutils.version>1.11.0</commons-beanutils.version>
 		<commons-cli.version>1.9.0</commons-cli.version>
 		<commons-codec.version>1.19.0</commons-codec.version>
 		<commons-config.version>2.12.0</commons-config.version>
 		<commons-csv.version>1.14.1</commons-csv.version>
 		<commons-lang3.version>3.18.0</commons-lang3.version>
-		<dropwizard.version>4.0.16</dropwizard.version>
-		<flywaydb.version>11.17.0</flywaydb.version>
+		<dropwizard.version>4.0.17</dropwizard.version>
 		<freemarker.version>2.3.34</freemarker.version>
 		<guava.version>31.1-jre</guava.version>
-		<h2.version>2.3.232</h2.version>
 		<httpclient.version>4.5.14</httpclient.version>
 		<jackson.version>2.17.2</jackson.version>
 		<javax.mail>1.6.2</javax.mail>
@@ -34,7 +31,6 @@
 		<logback.version>1.5.19</logback.version>
 		<lombok.version>1.18.20</lombok.version>
 		<nimbus-jose-jwt.version>9.48</nimbus-jose-jwt.version>
-		<postgres.version>42.7.8</postgres.version>
 	</properties>
 
 	<build>
@@ -105,36 +101,14 @@
 		</dependency>
 		<dependency>
 			<groupId>io.dropwizard</groupId>
+			<artifactId>dropwizard-assets</artifactId>
+			<version>${dropwizard.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.dropwizard</groupId>
 			<artifactId>dropwizard-testing</artifactId>
 			<version>${dropwizard.version}</version>
 			<scope>test</scope>
-		</dependency>
-		
-		<!-- H2 database -->
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<version>${h2.version}</version>
-		</dependency>
-
-		<!-- PostgreSQL driver -->
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<version>${postgres.version}</version>
-			<scope>runtime</scope>
-		</dependency>
-
-		<!-- FlywayDB -->
-		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
-			<version>${flywaydb.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-database-postgresql</artifactId>
-			<version>${flywaydb.version}</version>
 		</dependency>
 
 		<!-- Cron utils -->
@@ -204,11 +178,6 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-csv</artifactId>
 			<version>${commons-csv.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-dbcp2</artifactId>
-			<version>${apache-dbcp2.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
