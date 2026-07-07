@@ -18,7 +18,7 @@
 		<commons-config.version>2.12.0</commons-config.version>
 		<commons-csv.version>1.14.1</commons-csv.version>
 		<commons-lang3.version>3.18.0</commons-lang3.version>
-		<dropwizard.version>4.0.17</dropwizard.version>
+		<dropwizard.version>5.0.2</dropwizard.version>
 		<freemarker.version>2.3.34</freemarker.version>
 		<guava.version>31.1-jre</guava.version>
 		<httpclient.version>4.5.14</httpclient.version>

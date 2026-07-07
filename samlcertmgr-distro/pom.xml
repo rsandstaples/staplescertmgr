@@ -97,14 +97,14 @@
 
 	<dependencies>
 		<dependency>
-            <groupId>com.staples.iam.azure.manage</groupId>
-			<artifactId>security-backend</artifactId>
+            <groupId>com.staples.iam.aic.samlcertmgr</groupId>
+			<artifactId>samlcertmgr-backend</artifactId>
 			<version>${project.version}</version>
 			<type>jar</type>
 		</dependency>
 		<dependency>
-            <groupId>com.staples.iam.azure.manage</groupId>
-			<artifactId>security-frontend</artifactId>
+            <groupId>com.staples.iam.aic.samlcertmgr</groupId>
+			<artifactId>samlcertmgr-frontend</artifactId>
 			<version>${project.version}</version>
 			<type>zip</type>
 		</dependency>
