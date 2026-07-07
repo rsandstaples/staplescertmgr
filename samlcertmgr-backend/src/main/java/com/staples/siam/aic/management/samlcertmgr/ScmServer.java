@@ -7,8 +7,10 @@ import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.azure.security.keyvault.secrets.SecretClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.staples.siam.aic.management.samlcertmgr.aic.AicCredentialService;
 import com.staples.siam.aic.management.samlcertmgr.auth.AuthUser;
 import com.staples.siam.aic.management.samlcertmgr.auth.CookieSessionAuthFilter;
 import com.staples.siam.aic.management.samlcertmgr.auth.JsonUnauthorizedHandler;
@@ -16,8 +18,11 @@ import com.staples.siam.aic.management.samlcertmgr.auth.OidcAuthClient;
 import com.staples.siam.aic.management.samlcertmgr.auth.PendingAuthStore;
 import com.staples.siam.aic.management.samlcertmgr.auth.SessionAuthenticator;
 import com.staples.siam.aic.management.samlcertmgr.auth.SessionStore;
+import com.staples.siam.aic.management.samlcertmgr.config.AzureClients;
 import com.staples.siam.aic.management.samlcertmgr.dropwizard.SpaFallbackFilter;
+import com.staples.siam.aic.management.samlcertmgr.saml.SamlMetadataService;
 import com.staples.siam.aic.management.samlcertmgr.web.AuthResource;
+import com.staples.siam.aic.management.samlcertmgr.web.EntityResource;
 
 import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.auth.AuthDynamicFeature;
@@ -74,9 +79,14 @@ public class ScmServer extends Application<ScmConfig> {
                 .addFilter("spa-fallback", new SpaFallbackFilter())
                 .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true, "/*");
 
+        // ── AIC integration ────────────────────────────────────────────────
+        SecretClient secretClient = AzureClients.secretClient(config.getKeyVaultUri());
+        AicCredentialService aicCredentialService = new AicCredentialService(config, secretClient);
+        SamlMetadataService samlMetadataService = new SamlMetadataService();
+
         // ── Auth: Entra OIDC login + cookie session ────────────────────────
-        OidcAuthClient   oidcAuthClient   = new OidcAuthClient(config.getEntra());
-        SessionStore     sessionStore     = new SessionStore();
+        OidcAuthClient oidcAuthClient = new OidcAuthClient(config.getEntra());
+        SessionStore sessionStore = new SessionStore();
         PendingAuthStore pendingAuthStore = new PendingAuthStore();
 
         env.jersey().register(new AuthDynamicFeature(
@@ -90,6 +100,7 @@ public class ScmServer extends Application<ScmConfig> {
 
         env.jersey().register(new AuthResource(
                 oidcAuthClient, pendingAuthStore, sessionStore, config.isCookieSecure()));
+        env.jersey().register(new EntityResource(config, aicCredentialService, samlMetadataService));
 
         // Jersey Registrations
         env.jersey().register(new AbstractBinder() {
