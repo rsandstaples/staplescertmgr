@@ -9,12 +9,24 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.staples.siam.aic.management.samlcertmgr.auth.AuthUser;
+import com.staples.siam.aic.management.samlcertmgr.auth.CookieSessionAuthFilter;
+import com.staples.siam.aic.management.samlcertmgr.auth.JsonUnauthorizedHandler;
+import com.staples.siam.aic.management.samlcertmgr.auth.OidcAuthClient;
+import com.staples.siam.aic.management.samlcertmgr.auth.PendingAuthStore;
+import com.staples.siam.aic.management.samlcertmgr.auth.SessionAuthenticator;
+import com.staples.siam.aic.management.samlcertmgr.auth.SessionStore;
 import com.staples.siam.aic.management.samlcertmgr.dropwizard.SpaFallbackFilter;
+import com.staples.siam.aic.management.samlcertmgr.web.AuthResource;
 
 import io.dropwizard.assets.AssetsBundle;
+import io.dropwizard.auth.AuthDynamicFeature;
+import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PermitAllAuthorizer;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
+import io.dropwizard.forms.MultiPartBundle;
 import io.dropwizard.lifecycle.Managed;
 import jakarta.servlet.DispatcherType;
 
@@ -23,6 +35,9 @@ public class ScmServer extends Application<ScmConfig> {
 
     @Override
     public void initialize(Bootstrap<ScmConfig> bootstrap) {
+        // Registers the MultiPartFeature needed for @FormDataParam on the cert upload.
+        bootstrap.addBundle(new MultiPartBundle());
+
         bootstrap.addBundle(
                 new AssetsBundle(
                         "/webapp",
@@ -59,6 +74,23 @@ public class ScmServer extends Application<ScmConfig> {
                 .addFilter("spa-fallback", new SpaFallbackFilter())
                 .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true, "/*");
 
+        // ── Auth: Entra OIDC login + cookie session ────────────────────────
+        OidcAuthClient   oidcAuthClient   = new OidcAuthClient(config.getEntra());
+        SessionStore     sessionStore     = new SessionStore();
+        PendingAuthStore pendingAuthStore = new PendingAuthStore();
+
+        env.jersey().register(new AuthDynamicFeature(
+                new CookieSessionAuthFilter.Builder()
+                        .setAuthenticator(new SessionAuthenticator(sessionStore))
+                        .setAuthorizer(new PermitAllAuthorizer<>())
+                        .setUnauthorizedHandler(new JsonUnauthorizedHandler())
+                        .setPrefix("Session")
+                        .buildAuthFilter()));
+        env.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthUser.class));
+
+        env.jersey().register(new AuthResource(
+                oidcAuthClient, pendingAuthStore, sessionStore, config.isCookieSecure()));
+
         // Jersey Registrations
         env.jersey().register(new AbstractBinder() {
             @Override
@@ -75,7 +107,7 @@ public class ScmServer extends Application<ScmConfig> {
             if (in != null) {
                 var props = new java.util.Properties();
                 props.load(in);
-                logger.info("NovelKMS Version {} Build {}",
+                logger.info("SAML Cert Manager Version {} Build {}",
                         props.getProperty("app.version", "unknown"),
                         props.getProperty("build.number", "unknown"));
             }
