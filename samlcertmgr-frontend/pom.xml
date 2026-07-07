@@ -2,12 +2,12 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<artifactId>samltest-frontend</artifactId>
-	<name>SAML 2.0 Test App - Frontend</name>
+	<artifactId>samlcertmgr-frontend</artifactId>
+	<name>SAML Cert Manager - Frontend</name>
 	<parent>
-		<groupId>com.richardsand.samltest</groupId>
-		<artifactId>samltest-parent</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
+		<groupId>com.staples.iam.aic.samlcertmgr</groupId>
+		<artifactId>samlcertmgr-parent</artifactId>
+		<version>0.5-SNAPSHOT</version>
 	</parent>
 	<packaging>pom</packaging>
 
@@ -56,7 +56,7 @@
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>3.7.1</version>
 				<configuration>
-					<finalName>samltest-ui</finalName>
+					<finalName>samlcertmgr-ui</finalName>
 					<appendAssemblyId>false</appendAssemblyId>
 					<descriptors>
 						<descriptor>assembly/ui.xml</descriptor>

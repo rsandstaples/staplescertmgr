@@ -2,10 +2,10 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.richardsand.samltest</groupId>
-  <artifactId>samltest-parent</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <name>SAML 2.0 Test Tool</name>
+  <groupId>com.staples.iam.aic.samlcertmgr</groupId>
+  <artifactId>samlcertmgr-parent</artifactId>
+  <version>0.5-SNAPSHOT</version>
+  <name>AIC SAML Cert Manager</name>
   <packaging>pom</packaging>
   
   <properties>
@@ -18,9 +18,9 @@
   </properties>
 
   <modules>
-    <module>samltesttool-backend</module>
-    <!-- module>samltest-distro</module -->
-    <module>samltesttool-frontend</module>
+    <module>samlcertmgr-backend</module>
+    <module>samlcertmgr-frontend</module>
+    <module>samlcertmgr-distro</module>
   </modules>
   
   <build>

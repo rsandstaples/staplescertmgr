@@ -1,0 +1,34 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+	<id>src</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>true</includeBaseDirectory>
+	<moduleSets>
+		<moduleSet>
+			<useAllReactorProjects>true</useAllReactorProjects>
+			<includes>
+				<include>${project.groupId}:samlcertmgr-frontend</include>
+				<include>${project.groupId}:samlcertsmgr-backend</include>
+			</includes>
+			<sources>
+				<includeModuleDirectory>false</includeModuleDirectory>
+				<fileSets>
+					<fileSet>
+						<outputDirectory>sources/${module.artifactId}</outputDirectory>
+						<excludes>
+							<exclude>${project.build.directory}/**</exclude>
+							<exclude>**/target/**</exclude>
+							<exclude>**/dist/**</exclude>
+							<exclude>**/build/**</exclude>
+							<exclude>**/node/**</exclude>
+							<exclude>**/node_modules/**</exclude>
+						</excludes>
+					</fileSet>
+				</fileSets>
+			</sources>
+		</moduleSet>
+	</moduleSets>
+</assembly>

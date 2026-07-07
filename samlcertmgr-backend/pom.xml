@@ -2,12 +2,12 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<artifactId>samltest-backend</artifactId>
-	<name>SAML 2.0 Test Tool - Backend</name>
+	<artifactId>samlcertmgr-backend</artifactId>
+	<name>SAML Certificate Manager - Backend</name>
 	<parent>
-		<groupId>com.richardsand.samltest</groupId>
-		<artifactId>samltest-parent</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
+		<groupId>com.staples.iam.aic.samlcertmgr</groupId>
+		<artifactId>samlcertmgr-parent</artifactId>
+		<version>0.5-SNAPSHOT</version>
 	</parent>
 	<packaging>jar</packaging>
 
