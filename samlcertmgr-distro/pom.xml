@@ -36,7 +36,7 @@
 						</configuration>
 					</execution>
 
-					<!-- Copy API jar into target/assembled/backend -->
+					<!-- Copy backend jar into target/assembled/backend/lib -->
 					<execution>
 						<id>copy-api</id>
 						<phase>prepare-package</phase>
@@ -47,7 +47,7 @@
 							<artifactItems>
 								<artifactItem>
                                     <groupId>com.staples.iam.aic.samlcertmgr</groupId>
-									<artifactId>security-backend</artifactId>
+									<artifactId>samlcertmgr-backend</artifactId>
 									<version>${project.version}</version>
 									<outputDirectory>${project.build.directory}/assembled/backend/lib</outputDirectory>
 								</artifactItem>

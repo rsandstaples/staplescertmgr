@@ -80,7 +80,13 @@ public class ScmServer extends Application<ScmConfig> {
                 .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true, "/*");
 
         // ── AIC integration ────────────────────────────────────────────────
-        SecretClient secretClient = AzureClients.secretClient(config.getKeyVaultUri());
+        // secretClient stays null when running against localSecretsDir (local
+        // dev, before Key Vault access exists) — AicCredentialService handles
+        // that case itself.
+        String keyVaultUri = config.getKeyVaultUri();
+        SecretClient secretClient = (keyVaultUri != null && !keyVaultUri.isBlank())
+                ? AzureClients.secretClient(keyVaultUri)
+                : null;
         AicCredentialService aicCredentialService = new AicCredentialService(config, secretClient);
         SamlMetadataService samlMetadataService = new SamlMetadataService();
 

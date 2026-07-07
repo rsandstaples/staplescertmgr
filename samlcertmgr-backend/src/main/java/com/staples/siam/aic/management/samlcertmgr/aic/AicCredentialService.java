@@ -2,6 +2,8 @@ package com.staples.siam.aic.management.samlcertmgr.aic;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -11,22 +13,29 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.staples.siam.aic.management.samlcertmgr.ScmConfig;
 import com.staples.siam.aic.management.samlcertmgr.auth.TokenProvider;
 import com.staples.siam.aic.management.samlcertmgr.config.AicEnvironmentConfig;
-import com.staples.siam.aic.management.samlcertmgr.importer.ImportConfig;
 import com.staples.siam.aic.management.samlcertmgr.importer.IdpPushToAIC;
+import com.staples.siam.aic.management.samlcertmgr.importer.ImportConfig;
 
 /**
  * Central place that turns an environment key (uat / staging / prod) into the
  * objects needed to talk to that AIC instance.
  *
- * <p>The private JWK for each environment is pulled from Azure Key Vault via the
- * app's managed identity and never written to disk. Token providers are cached
- * per environment (they in turn cache the bearer token), so the JWK is fetched
- * once per environment per process lifetime.
+ * <p>
+ * The private JWK for each environment is normally pulled from Azure Key
+ * Vault via the app's managed identity and never written to disk. Token
+ * providers are cached per environment (they in turn cache the bearer
+ * token), so the JWK is fetched once per environment per process lifetime.
+ *
+ * <p>
+ * Before Key Vault access exists (e.g. local development, or waiting on a
+ * pending Azure resource request), set {@code localSecretsDir} in config —
+ * JWKs are then read from {@code <localSecretsDir>/<jwkSecretName>.json}
+ * instead, and {@code secretClient} can be null.
  */
 public class AicCredentialService {
 
     private final ScmConfig    config;
-    private final SecretClient secretClient;
+    private final SecretClient secretClient;               // may be null when localSecretsDir is set
     private final ObjectMapper mapper = new ObjectMapper();
 
     private final HttpClient http = HttpClient.newBuilder()
@@ -50,7 +59,7 @@ public class AicCredentialService {
         String canonical = canonicalKey(envKey);
         return providers.computeIfAbsent(canonical, k -> {
             AicEnvironmentConfig env = config.requireAicEnv(k);
-            RSAKey jwk = loadJwk(env.getJwkSecretName());
+            RSAKey               jwk = loadJwk(env.getJwkSecretName());
             return new AicTokenProvider(URI.create(env.tokenEndpointUrl()),
                     env.getServiceAccountId(), jwk, config.getAicScope(), http, mapper);
         });
@@ -59,7 +68,7 @@ public class AicCredentialService {
     /** A push client (importEntity, entityExists, CoT) for the given environment. */
     public IdpPushToAIC pushClient(String envKey) {
         AicEnvironmentConfig env = config.requireAicEnv(envKey);
-        ImportConfig cfg = ImportConfig.builder()
+        ImportConfig         cfg = ImportConfig.builder()
                 .tenantFqdn(env.getTenantFqdn())
                 .realm(env.getRealm())
                 .serviceAccountId(env.getServiceAccountId())
@@ -73,6 +82,31 @@ public class AicCredentialService {
     }
 
     private RSAKey loadJwk(String secretName) {
+        String localDir = config.getLocalSecretsDir();
+        if (localDir != null && !localDir.isBlank()) {
+            return loadJwkFromLocalFile(localDir, secretName);
+        }
+        return loadJwkFromKeyVault(secretName);
+    }
+
+    private RSAKey loadJwkFromLocalFile(String localDir, String secretName) {
+        Path path = Path.of(localDir, secretName + ".json");
+        try {
+            return RSAKey.parse(Files.readString(path));
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to load/parse AIC JWK from local file '" + path
+                            + "' (localSecretsDir mode — this is meant for local dev before Key Vault exists)",
+                    e);
+        }
+    }
+
+    private RSAKey loadJwkFromKeyVault(String secretName) {
+        if (secretClient == null) {
+            throw new IllegalStateException(
+                    "No Key Vault client configured and localSecretsDir is unset — cannot load JWK '"
+                            + secretName + "'. Set one of the two in config.");
+        }
         try {
             String jwkJson = secretClient.getSecret(secretName).getValue();
             return RSAKey.parse(jwkJson);

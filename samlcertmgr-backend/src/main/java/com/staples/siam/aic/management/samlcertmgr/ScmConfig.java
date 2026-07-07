@@ -18,9 +18,23 @@ public class ScmConfig extends Configuration {
     @JsonProperty("entra")
     private EntraConfig entra;
 
-    @NotEmpty
+    /**
+     * Key Vault URI to load AIC JWKs from. Optional — only required when
+     * {@link #localSecretsDir} is unset. Lets local dev/testing proceed
+     * before a Key Vault has actually been provisioned.
+     */
     @JsonProperty("keyVaultUri")
     private String keyVaultUri;
+
+    /**
+     * When set, AIC JWKs are read from this directory instead of Key Vault —
+     * one file per environment, named {@code <jwkSecretName>.json} (matching
+     * each AicEnvironmentConfig's jwkSecretName), containing the raw JWK JSON.
+     * Meant for local development only, before Key Vault access exists;
+     * leave unset (or omit entirely) once Key Vault is available.
+     */
+    @JsonProperty("localSecretsDir")
+    private String localSecretsDir;
 
     /** false only for local http://localhost development. */
     @JsonProperty("cookieSecure")
@@ -50,6 +64,14 @@ public class ScmConfig extends Configuration {
 
     public void setKeyVaultUri(String keyVaultUri) {
         this.keyVaultUri = keyVaultUri;
+    }
+
+    public String getLocalSecretsDir() {
+        return localSecretsDir;
+    }
+
+    public void setLocalSecretsDir(String localSecretsDir) {
+        this.localSecretsDir = localSecretsDir;
     }
 
     public boolean isCookieSecure() {

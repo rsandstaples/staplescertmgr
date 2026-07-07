@@ -1,0 +1,23 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>ui</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+
+    <!--
+      vite.config.js builds into target/classes/webapp (matching ScmServer's
+      AssetsBundle("/webapp", "/", "index.html")). Zip that directory's
+      contents straight into the root of samlcertmgr-ui.zip, so
+      samlcertmgr-distro's unpack-ui execution drops them right back into
+      /webapp on the way into the final distro.
+    -->
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.outputDirectory}/webapp</directory>
+            <outputDirectory>/</outputDirectory>
+        </fileSet>
+    </fileSets>
+</assembly>

@@ -21,11 +21,28 @@
 
     <fileSets>
         <fileSet>
-            <directory>${project.basedir}/../backend</directory>
+            <!-- Actual location: samlcertmgr-backend/src/main/conf/config.yaml (not backend/config.yml). -->
+            <directory>${project.basedir}/../samlcertmgr-backend/src/main/conf</directory>
             <includes>
-                <include>config.yml</include>
+                <include>config.yaml</include>
             </includes>
             <outputDirectory>/</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <!--
+              Populated by the unpack-ui execution in this module's pom.xml
+              (maven-dependency-plugin, prepare-package phase). Named "webapp"
+              to match ScmServer's AssetsBundle("/webapp", ...) resource path —
+              rename this (and the AssetsBundle call) to "ui" or "wwwroot" if
+              IIS ends up serving these files directly rather than the JVM.
+              Either way: if the JVM is meant to serve them, whatever launches
+              the jar needs this directory added to the runtime classpath
+              (e.g. a Class-Path entry in the manifest, or -cp on the command
+              line) — a sibling directory on disk isn't on the classpath by
+              default the way a bundled resource inside the jar would be.
+            -->
+            <directory>${project.build.directory}/assembled/ui</directory>
+            <outputDirectory>/webapp</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.basedir}/src/main/resources</directory>
