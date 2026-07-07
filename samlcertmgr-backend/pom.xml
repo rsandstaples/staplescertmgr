@@ -12,6 +12,8 @@
 	<packaging>jar</packaging>
 
 	<properties>
+		<azure-identity.version>1.13.3</azure-identity.version>
+		<azure-keyvault-secrets>4.11.0</azure-keyvault-secrets>
 		<commons-beanutils.version>1.11.0</commons-beanutils.version>
 		<commons-cli.version>1.9.0</commons-cli.version>
 		<commons-codec.version>1.19.0</commons-codec.version>
@@ -21,6 +23,7 @@
 		<dropwizard.version>5.0.2</dropwizard.version>
 		<freemarker.version>2.3.34</freemarker.version>
 		<guava.version>31.1-jre</guava.version>
+		<hibernate.validator>8.0.1.Final</hibernate.validator>
 		<httpclient.version>4.5.14</httpclient.version>
 		<jackson.version>2.17.2</jackson.version>
 		<javax.mail>1.6.2</javax.mail>
@@ -31,6 +34,7 @@
 		<logback.version>1.5.19</logback.version>
 		<lombok.version>1.18.20</lombok.version>
 		<nimbus-jose-jwt.version>9.48</nimbus-jose-jwt.version>
+		<nimbus-oauth-sdk.version>11.20.1</nimbus-oauth-sdk.version>
 	</properties>
 
 	<build>
@@ -109,6 +113,16 @@
 			<artifactId>dropwizard-testing</artifactId>
 			<version>${dropwizard.version}</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.dropwizard</groupId>
+			<artifactId>dropwizard-auth</artifactId>
+			<version>${dropwizard.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.dropwizard</groupId>
+			<artifactId>dropwizard-forms</artifactId>
+			<version>${dropwizard.version}</version>
 		</dependency>
 
 		<!-- Cron utils -->
@@ -213,12 +227,43 @@
 		<dependency>
 			<groupId>org.hibernate.validator</groupId>
 			<artifactId>hibernate-validator</artifactId>
-			<version>8.0.1.Final</version>
+			<version>${hibernate.validator}</version>
 		</dependency>
 		<dependency>
 			<groupId>jakarta.validation</groupId>
 			<artifactId>jakarta.validation-api</artifactId>
 			<version>3.0.2</version>
+		</dependency>
+
+		<!-- Azure -->
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-identity</artifactId>
+			<version>${azure-identity.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-security-keyvault-secrets</artifactId>
+			<version>${azure-keyvault-secrets}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.nimbusds</groupId>
+			<artifactId>oauth2-oidc-sdk</artifactId>
+			<version>${nimbus-oauth-sdk.version}</version>
+		</dependency>
+
+		<!-- nimbus-jose-jwt -->
+		<dependency>
+			<groupId>com.nimbusds</groupId>
+			<artifactId>nimbus-jose-jwt</artifactId>
+			<version>${nimbus-jose-jwt.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+			<version>3.1.8</version>
 		</dependency>
 
 		<!-- JUnit -->

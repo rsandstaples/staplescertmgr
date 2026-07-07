@@ -19,7 +19,40 @@ logging:
       logFormat: "%d{yyyy-MM-dd HH:mm:ss} [%level][%X{ctx}][%logger{36}] - [%msg]%n"
       timeZone: America/New_York
 
-tenant:
-  tenantUrl: "${TENANT_URL}"
-  svcAcctId: "${SVCACCT_ID}"
-  svcAcctKeyPath: "${SVCACCT_KEYPATH}"
+# Application
+cookieSecure: true
+
+entra:
+  tenantId: "${ENTRA_TENANT_ID}"
+  clientId: "${ENTRA_CLIENT_ID}"
+  clientSecret: "${ENTRA_CLIENT_SECRET}"
+  # Must exactly match the redirect URI registered on the Entra App Registration.
+  redirectUri: "https://${APP_HOSTNAME}/api/login/oauth2/code/azure"
+  groupClaimName: groups
+  authGroupId: "${AIC_CONSOLE_GROUP_ID}"
+
+keyVaultUri: "https://${KEY_VAULT_NAME}.vault.azure.net"
+
+# Scope requested on the AIC service-account JWT-bearer grant. Defaults to
+# fr:am:* if omitted.
+aicScope: "fr:am:*"
+
+aic:
+  uat:
+    label: UAT
+    tenantFqdn: "https://${AIC_UAT_HOST}"
+    realm: bravo
+    serviceAccountId: "${AIC_UAT_SA_ID}"
+    jwkSecretName: aic-uat-jwk
+  staging:
+    label: Staging
+    tenantFqdn: "https://${AIC_STAGING_HOST}"
+    realm: bravo
+    serviceAccountId: "${AIC_STAGING_SA_ID}"
+    jwkSecretName: aic-staging-jwk
+  prod:
+    label: Production
+    tenantFqdn: "https://${AIC_PROD_HOST}"
+    realm: bravo
+    serviceAccountId: "${AIC_PROD_SA_ID}"
+    jwkSecretName: aic-prod-jwk
