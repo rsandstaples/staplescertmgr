@@ -48,11 +48,15 @@ public class AicEntityReader {
 
         do {
             String url = env.amRealmBaseUrl() + "/realm-config/saml2"
-                    + "?_queryFilter=true&_pageSize=" + PAGE_SIZE;
+                    + "?_queryFilter=true&_pageSize=" + PAGE_SIZE
+                    // AIC's default listing only returns _id/_rev/entityId/location/roles —
+                    // metadata (the XML with the actual certs) is a heavier field that's
+                    // omitted from listings unless explicitly requested via _fields.
+                    + "&_fields=_id,entityId,location,roles,metadata";
             if (cookie != null) {
                 url += "&_pagedResultsCookie=" + URLEncoder.encode(cookie, StandardCharsets.UTF_8);
             }
-            
+
             logger.info("Sending request to {}", url);
 
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))

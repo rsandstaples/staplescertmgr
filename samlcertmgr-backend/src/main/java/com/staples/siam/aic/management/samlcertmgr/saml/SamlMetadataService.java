@@ -104,25 +104,22 @@ public class SamlMetadataService {
     private final java.util.concurrent.atomic.AtomicBoolean diagnosticsLogged = new java.util.concurrent.atomic.AtomicBoolean(false);
 
     private EntitySummary summarizeOne(JsonNode entry) {
+        // entityId and role come straight from AIC's JSON — reliable even if the
+        // metadata XML below fails to parse, unlike deriving them from the XML.
+        String entityId    = entry.hasNonNull("entityId") ? entry.get("entityId").asText()
+                : entry.path("_id").asText(null);
+        String role        = roleFromJson(entry);
         String rawMetadata = entry.hasNonNull("metadata") ? entry.get("metadata").asText() : null;
-        String fallbackId  = entry.path("_id").asText(null);
 
         if (rawMetadata == null || rawMetadata.isBlank()) {
             logDiagnosticsOnce(entry, "no 'metadata' field found on entity JSON");
-            return new EntitySummary(fallbackId, "UNKNOWN", null, null, null,
+            return new EntitySummary(entityId, role, null, null, null,
                     null, null, false, false, 0, "no metadata");
         }
 
         try {
-            Document doc      = parse(rawMetadata);
-            Element  desc     = doc.getDocumentElement();
-            String   entityId = attr(desc, "entityID");
-            if (entityId == null)
-                entityId = fallbackId;
-
-            boolean idp  = !elementsByLocalName(desc, "IDPSSODescriptor").isEmpty();
-            boolean sp   = !elementsByLocalName(desc, "SPSSODescriptor").isEmpty();
-            String  role = idp ? "IDP" : (sp ? "SP" : "UNKNOWN");
+            Document doc  = parse(rawMetadata);
+            Element  desc = doc.getDocumentElement();
 
             List<X509Certificate> signing = decodeSigningCerts(desc);
             if (signing.isEmpty()) {
@@ -148,12 +145,27 @@ public class SamlMetadataService {
                     DAY.format(notAfter), days, expired, expiringSoon,
                     signing.size(), null);
         } catch (Exception ex) {
-            logger.warn("Failed to summarize entity {}: {}", fallbackId, ex.getMessage());
+            logger.warn("Failed to parse metadata for entity {}: {}", entityId, ex.getMessage());
             logDiagnosticsOnce(entry, "metadata present but failed to parse as XML: "
                     + ex.getClass().getSimpleName() + ": " + ex.getMessage());
-            return new EntitySummary(fallbackId, "UNKNOWN", null, null, null,
+            return new EntitySummary(entityId, role, null, null, null,
                     null, null, false, false, 0, ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
+    }
+
+    /** Maps AIC's "roles" array (e.g. ["identityProvider"]) to the console's IDP/SP/UNKNOWN. */
+    private static String roleFromJson(JsonNode entry) {
+        JsonNode roles = entry.path("roles");
+        if (roles.isArray()) {
+            for (JsonNode r : roles) {
+                String v = r.asText("");
+                if ("identityProvider".equalsIgnoreCase(v))
+                    return "IDP";
+                if ("serviceProvider".equalsIgnoreCase(v))
+                    return "SP";
+            }
+        }
+        return "UNKNOWN";
     }
 
     /**
@@ -190,16 +202,13 @@ public class SamlMetadataService {
     /** Finds the raw metadata XML for a given entityId within a listing. */
     public Optional<String> rawMetadataFor(List<JsonNode> entries, String entityId) {
         for (JsonNode entry : entries) {
-            String md = entry.hasNonNull("metadata") ? entry.get("metadata").asText() : null;
-            if (md == null || md.isBlank())
+            String id = entry.hasNonNull("entityId") ? entry.get("entityId").asText() : null;
+            if (!entityId.equals(id)) {
                 continue;
-            try {
-                String id = attr(parse(md).getDocumentElement(), "entityID");
-                if (entityId.equals(id)) {
-                    return Optional.of(md);
-                }
-            } catch (Exception ignored) {
-                // skip unparseable entries
+            }
+            String md = entry.hasNonNull("metadata") ? entry.get("metadata").asText() : null;
+            if (md != null && !md.isBlank()) {
+                return Optional.of(md);
             }
         }
         return Optional.empty();
