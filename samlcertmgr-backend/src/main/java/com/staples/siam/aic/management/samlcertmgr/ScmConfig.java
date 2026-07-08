@@ -11,7 +11,11 @@ import io.dropwizard.core.Configuration;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public class ScmConfig extends Configuration {
     @Valid
     @NotNull
@@ -50,53 +54,15 @@ public class ScmConfig extends Configuration {
     @JsonProperty("aic")
     private Map<String, AicEnvironmentConfig> aic = new LinkedHashMap<>();
 
-    public EntraConfig getEntra() {
-        return entra;
-    }
-
-    public void setEntra(EntraConfig entra) {
-        this.entra = entra;
-    }
-
-    public String getKeyVaultUri() {
-        return keyVaultUri;
-    }
-
-    public void setKeyVaultUri(String keyVaultUri) {
-        this.keyVaultUri = keyVaultUri;
-    }
-
-    public String getLocalJwkDir() {
-        return localJwkDir;
-    }
-
-    public void setLocalJwkDir(String localSecretsDir) {
-        this.localJwkDir = localSecretsDir;
-    }
-
-    public boolean isCookieSecure() {
-        return cookieSecure;
-    }
-
-    public void setCookieSecure(boolean cookieSecure) {
-        this.cookieSecure = cookieSecure;
-    }
-
-    public String getAicScope() {
-        return aicScope;
-    }
-
-    public void setAicScope(String aicScope) {
-        this.aicScope = aicScope;
-    }
-
-    public Map<String, AicEnvironmentConfig> getAic() {
-        return aic;
-    }
-
-    public void setAic(Map<String, AicEnvironmentConfig> aic) {
-        this.aic = aic;
-    }
+    /**
+     * Where to send the browser after a successful login. Defaults to "/" (the
+     * app's own AssetsBundle-served SPA). Override to point at the Vite dev
+     * server (e.g. "http://localhost:5173/") when running the frontend
+     * separately with `npm run dev` — the SESSION cookie is host-scoped, not
+     * port-scoped, so it's still sent once the browser lands there.
+     */
+    @JsonProperty("postLoginRedirect")
+    private String postLoginRedirect = "/";
 
     /** Case-insensitive lookup with a clear error rather than an NPE deep in a client. */
     public AicEnvironmentConfig requireAicEnv(String key) {

@@ -83,16 +83,16 @@ public class ScmServer extends Application<ScmConfig> {
         // secretClient stays null when running against localSecretsDir (local
         // dev, before Key Vault access exists) — AicCredentialService handles
         // that case itself.
-        String keyVaultUri = config.getKeyVaultUri();
-        SecretClient secretClient = (keyVaultUri != null && !keyVaultUri.isBlank())
+        String               keyVaultUri          = config.getKeyVaultUri();
+        SecretClient         secretClient         = (keyVaultUri != null && !keyVaultUri.isBlank())
                 ? AzureClients.secretClient(keyVaultUri)
                 : null;
         AicCredentialService aicCredentialService = new AicCredentialService(config, secretClient);
-        SamlMetadataService samlMetadataService = new SamlMetadataService();
+        SamlMetadataService  samlMetadataService  = new SamlMetadataService();
 
         // ── Auth: Entra OIDC login + cookie session ────────────────────────
-        OidcAuthClient oidcAuthClient = new OidcAuthClient(config.getEntra());
-        SessionStore sessionStore = new SessionStore();
+        OidcAuthClient   oidcAuthClient   = new OidcAuthClient(config.getEntra());
+        SessionStore     sessionStore     = new SessionStore();
         PendingAuthStore pendingAuthStore = new PendingAuthStore();
 
         env.jersey().register(new AuthDynamicFeature(
@@ -105,7 +105,7 @@ public class ScmServer extends Application<ScmConfig> {
         env.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthUser.class));
 
         env.jersey().register(new AuthResource(
-                oidcAuthClient, pendingAuthStore, sessionStore, config.isCookieSecure()));
+                oidcAuthClient, pendingAuthStore, sessionStore, config.isCookieSecure(), config.getPostLoginRedirect()));
         env.jersey().register(new EntityResource(config, aicCredentialService, samlMetadataService));
 
         // Jersey Registrations

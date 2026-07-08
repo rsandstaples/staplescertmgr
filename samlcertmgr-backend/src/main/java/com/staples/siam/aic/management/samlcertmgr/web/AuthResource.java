@@ -42,13 +42,21 @@ public class AuthResource {
     private final PendingAuthStore pendingAuth;
     private final SessionStore     sessions;
     private final boolean          cookieSecure;
+    private final String           postLoginRedirect;
 
     public AuthResource(OidcAuthClient oidc, PendingAuthStore pendingAuth, SessionStore sessions,
-            boolean cookieSecure) {
+            boolean cookieSecure, String postLoginRedirect) {
         this.oidc = oidc;
         this.pendingAuth = pendingAuth;
         this.sessions = sessions;
         this.cookieSecure = cookieSecure;
+        this.postLoginRedirect = postLoginRedirect;
+    }
+
+    /** Appends a query suffix (e.g. "?error=login_failed") to the configured post-login target. */
+    private URI redirectTarget(String querySuffix) {
+        String base = postLoginRedirect.endsWith("/") ? postLoginRedirect : postLoginRedirect + "/";
+        return URI.create(querySuffix == null ? base : base + querySuffix);
     }
 
     @GET
@@ -70,13 +78,13 @@ public class AuthResource {
             @QueryParam("error_description") String errorDescription) {
         if (error != null) {
             logger.warn("Entra returned an error on callback: {} — {}", error, errorDescription);
-            return Response.seeOther(URI.create("/?error=login_failed")).build();
+            return Response.seeOther(redirectTarget("?error=login_failed")).build();
         }
 
         String nonce = pendingAuth.consume(state).orElse(null);
         if (nonce == null) {
             logger.warn("Callback with unknown/expired state");
-            return Response.seeOther(URI.create("/?error=login_failed")).build();
+            return Response.seeOther(redirectTarget("?error=login_failed")).build();
         }
 
         try {
@@ -85,19 +93,19 @@ public class AuthResource {
             if (!oidc.isAuthorized(claims)) {
                 logger.warn("User {} authenticated but is not in the required access group",
                         oidc.email(claims));
-                return Response.seeOther(URI.create("/?error=forbidden")).build();
+                return Response.seeOther(redirectTarget("?error=forbidden")).build();
             }
 
             String sessionId = sessions.create(oidc.email(claims), oidc.displayName(claims));
             String csrfToken = sessions.lookup(sessionId).map(r -> r.csrfToken()).orElse("");
 
-            return Response.seeOther(URI.create("/"))
+            return Response.seeOther(redirectTarget(null))
                     .cookie(CookieUtil.session(sessionId, SESSION_COOKIE_MAX_AGE, cookieSecure))
                     .cookie(CookieUtil.xsrf(csrfToken, SESSION_COOKIE_MAX_AGE, cookieSecure))
                     .build();
         } catch (Exception e) {
             logger.error("Entra token exchange/validation failed", e);
-            return Response.seeOther(URI.create("/?error=login_failed")).build();
+            return Response.seeOther(redirectTarget("?error=login_failed")).build();
         }
     }
 
@@ -105,7 +113,7 @@ public class AuthResource {
     @Path("/logout")
     public Response logout(@CookieParam("SESSION") String sessionId) {
         sessions.invalidate(sessionId);
-        return Response.seeOther(URI.create("/"))
+        return Response.seeOther(redirectTarget(null))
                 .cookie(CookieUtil.expire("SESSION", true, cookieSecure))
                 .cookie(CookieUtil.expire("XSRF-TOKEN", false, cookieSecure))
                 .build();
