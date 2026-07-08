@@ -16,27 +16,39 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.staples.siam.aic.management.samlcertmgr.auth.TokenProvider;
 import com.staples.siam.aic.management.samlcertmgr.config.AicEnvironmentConfig;
 
 /**
- * Lists every SAML2 remote/hosted entity in a realm.
+ * Lists every SAML2 remote/hosted entity in a realm, with each entity's
+ * actual SAML metadata XML (the document with the signing certs).
  *
  * <p>
- * AIC's collection query ({@code /realm-config/saml2?_queryFilter=true})
- * only ever returns a lean summary — {@code _id}, {@code entityId},
- * {@code location}, {@code roles} — regardless of {@code _fields}; the actual
- * metadata XML isn't in that response at all. What does work: {@code _id} is
- * {@code base64url(entityId)}, and reading the <em>specific resource</em> by
- * that id ({@code GET /realm-config/saml2/{location}/{_id}}, no query filter)
- * returns the full object, metadata included. So this does the query first
- * for the list of ids, then one GET per entity for the full record.
+ * Two AIC surfaces are in play here, and they turned out to be genuinely
+ * different data models, not two views of the same thing:
+ * <ul>
+ * <li>{@code /realm-config/saml2/{location}/{_id}} (the REST config API) —
+ * returns a <em>decomposed, structured</em> representation of the
+ * entity's behavior (NameID format, SSO bindings, signing toggles under
+ * {@code identityProvider.assertionContent}, etc.) — no metadata XML,
+ * no certs, at least not inline. This was the previous approach here;
+ * it works, but answers the wrong question for this app.</li>
+ * <li>{@code exportmetadata.jsp} (legacy AM SAML2 JSP, not the REST API) —
+ * the actual {@code <EntityDescriptor>} document, same surface
+ * {@code IdpPushToAIC.entityExists()} already reads from (realm-wide,
+ * used there only for a substring check) and the same shape
+ * {@code IdpPushToAIC.importEntity()} writes back via
+ * {@code standardMetadata}. Scoped to one entity via {@code &entityid=},
+ * per standard OpenAM/AM convention — this is the one this class needs.</li>
+ * </ul>
  *
  * <p>
- * N+1 requests, but this runs once per "Refresh" click on an admin
- * console, not on a hot path — correctness over cleverness here. If it's
- * ever noticeably slow with 250+ partnerships, the per-entity fetches below
- * are the thing to parallelize.
+ * So: query the REST API for the lean list of entityId/location/roles
+ * (cheap, paged), then fetch each entity's real metadata XML from
+ * exportmetadata.jsp and fold it into a synthetic JSON node under a
+ * {@code "metadata"} key — so {@link com.staples.siam.aic.management.samlcertmgr.saml.SamlMetadataService},
+ * which already expects exactly that shape, needs no changes at all.
  */
 public class AicEntityReader {
 
@@ -49,7 +61,7 @@ public class AicEntityReader {
     private final HttpClient           http;
     private final ObjectMapper         mapper;
 
-    /** Logs the very first per-entity fetch's outcome at INFO, to confirm/refute the hypothesis quickly. */
+    /** Logs the very first per-entity metadata fetch's outcome at INFO, to confirm/refute this quickly. */
     private final AtomicBoolean firstFetchLogged = new AtomicBoolean(false);
 
     public AicEntityReader(AicEnvironmentConfig env, TokenProvider auth, HttpClient http, ObjectMapper mapper) {
@@ -59,17 +71,21 @@ public class AicEntityReader {
         this.mapper = mapper;
     }
 
-    /** Returns every entity's full resource (metadata included) in the realm. */
+    /** Returns every entity, each with a "metadata" field containing its real SAML metadata XML. */
     public List<JsonNode> listAll() throws Exception {
         List<JsonNode> summaries = listSummaries();
         List<JsonNode> full      = new ArrayList<>(summaries.size());
 
         for (JsonNode summary : summaries) {
+            String entityId = summary.path("entityId").asText();
             try {
-                full.add(fetchFull(summary));
+                String     xml          = fetchMetadataXml(entityId);
+                ObjectNode withMetadata = summary.deepCopy();
+                withMetadata.put("metadata", xml);
+                full.add(withMetadata);
             } catch (Exception e) {
-                logger.warn("Failed to fetch full record for entity {} (_id={}): {} — falling back to summary only",
-                        summary.path("entityId").asText(), summary.path("_id").asText(), e.getMessage());
+                logger.warn("Failed to fetch metadata XML for entity {}: {} — falling back to summary only",
+                        entityId, e.getMessage());
                 full.add(summary); // row still shows up, just without cert data
             }
         }
@@ -88,7 +104,7 @@ public class AicEntityReader {
                 url += "&_pagedResultsCookie=" + URLEncoder.encode(cookie, StandardCharsets.UTF_8);
             }
 
-            HttpResponse<String> resp = get(url);
+            HttpResponse<String> resp = getJson(url);
             if (resp.statusCode() != 200) {
                 throw new IllegalStateException(
                         "SAML2 query failed: HTTP " + resp.statusCode() + " — " + resp.body());
@@ -109,34 +125,44 @@ public class AicEntityReader {
     }
 
     /**
-     * Reads one entity's full resource by _id. {@code location} ("remote" or
-     * "hosted", from the summary) selects which sub-collection to read from —
-     * this is the part most likely to need adjusting if the hypothesis is wrong.
+     * Fetches one entity's actual SAML metadata XML (the document with the
+     * signing certs) from the legacy exportmetadata.jsp endpoint, scoped to
+     * this specific entityId.
      */
-    private JsonNode fetchFull(JsonNode summary) throws Exception {
-        String id       = summary.path("_id").asText();
-        String location = summary.path("location").asText("remote");
-        String url      = env.amRealmBaseUrl() + "/realm-config/saml2/" + location + "/" + id;
+    private String fetchMetadataXml(String entityId) throws Exception {
+        String url = env.getTenantFqdn() + "/am/saml2/jsp/exportmetadata.jsp"
+                + "?realm=" + URLEncoder.encode(env.getRealm(), StandardCharsets.UTF_8)
+                + "&entityid=" + URLEncoder.encode(entityId, StandardCharsets.UTF_8);
 
-        HttpResponse<String> resp = get(url);
+        HttpRequest          req  = HttpRequest.newBuilder(URI.create(url))
+                .header("Authorization", "Bearer " + auth.getToken())
+                .header("Accept", "application/xml, text/xml, */*")
+                .GET()
+                .timeout(Duration.ofSeconds(30))
+                .build();
+        HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
 
         if (!firstFetchLogged.compareAndSet(false, true)) {
-            // subsequent entities: no per-row logging, just let failures accumulate via listAll()'s catch
+            // only the first entity gets the verbose probe below
         } else if (resp.statusCode() == 200) {
-            JsonNode probe = mapper.readTree(resp.body());
-            logger.info("First per-entity fetch succeeded — GET {} returned fields: {}", url,
-                    collectFieldNames(probe));
+            String body    = resp.body() == null ? "" : resp.body();
+            String snippet = body.substring(0, Math.min(body.length(), 300));
+            logger.info("First exportmetadata.jsp fetch succeeded — GET {} → HTTP 200, first 300 chars: {}",
+                    url, snippet);
+            logger.info("Contains X509Certificate: {}", body.contains("X509Certificate"));
         } else {
-            logger.warn("First per-entity fetch FAILED — GET {} → HTTP {}: {}", url, resp.statusCode(), resp.body());
+            logger.warn("First exportmetadata.jsp fetch FAILED — GET {} → HTTP {}: {}",
+                    url, resp.statusCode(), resp.body());
         }
 
-        if (resp.statusCode() != 200) {
-            throw new IllegalStateException("GET " + url + " → HTTP " + resp.statusCode() + " — " + resp.body());
+        if (resp.statusCode() != 200 || resp.body() == null || resp.body().isBlank()) {
+            throw new IllegalStateException(
+                    "exportmetadata.jsp returned HTTP " + resp.statusCode() + " (empty or non-200) for " + entityId);
         }
-        return mapper.readTree(resp.body());
+        return resp.body();
     }
 
-    private HttpResponse<String> get(String url) throws Exception {
+    private HttpResponse<String> getJson(String url) throws Exception {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .header("Authorization", "Bearer " + auth.getToken())
                 .header("Accept", "application/json")
@@ -145,11 +171,5 @@ public class AicEntityReader {
                 .timeout(Duration.ofSeconds(30))
                 .build();
         return http.send(req, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static List<String> collectFieldNames(JsonNode node) {
-        List<String> names = new ArrayList<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return names;
     }
 }
