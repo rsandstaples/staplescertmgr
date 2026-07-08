@@ -33,8 +33,8 @@ public class ScmConfig extends Configuration {
      * Meant for local development only, before Key Vault access exists;
      * leave unset (or omit entirely) once Key Vault is available.
      */
-    @JsonProperty("localSecretsDir")
-    private String localSecretsDir;
+    @JsonProperty("localJwkDir")
+    private String localJwkDir;
 
     /** false only for local http://localhost development. */
     @JsonProperty("cookieSecure")
@@ -66,12 +66,12 @@ public class ScmConfig extends Configuration {
         this.keyVaultUri = keyVaultUri;
     }
 
-    public String getLocalSecretsDir() {
-        return localSecretsDir;
+    public String getLocalJwkDir() {
+        return localJwkDir;
     }
 
-    public void setLocalSecretsDir(String localSecretsDir) {
-        this.localSecretsDir = localSecretsDir;
+    public void setLocalJwkDir(String localSecretsDir) {
+        this.localJwkDir = localSecretsDir;
     }
 
     public boolean isCookieSecure() {

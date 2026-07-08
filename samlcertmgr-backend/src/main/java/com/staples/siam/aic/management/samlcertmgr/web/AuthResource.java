@@ -17,7 +17,6 @@ import com.staples.siam.aic.management.samlcertmgr.auth.SessionStore;
 import io.dropwizard.auth.Auth;
 import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -102,13 +101,7 @@ public class AuthResource {
         }
     }
 
-    /**
-     * Accepts both GET (a plain {@code <a href>} link, as the SPA uses — logging
-     * out isn't a sensitive action, so a forced GET from a malicious page is a
-     * nuisance at worst) and POST (for anything that prefers to fetch() it).
-     */
     @GET
-    @POST
     @Path("/logout")
     public Response logout(@CookieParam("SESSION") String sessionId) {
         sessions.invalidate(sessionId);

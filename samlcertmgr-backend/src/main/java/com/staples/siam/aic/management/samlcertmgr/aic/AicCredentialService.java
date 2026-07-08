@@ -59,7 +59,7 @@ public class AicCredentialService {
         String canonical = canonicalKey(envKey);
         return providers.computeIfAbsent(canonical, k -> {
             AicEnvironmentConfig env = config.requireAicEnv(k);
-            RSAKey               jwk = loadJwk(env.getJwkSecretName());
+            RSAKey               jwk = loadJwk(env.getJwkName());
             return new AicTokenProvider(URI.create(env.tokenEndpointUrl()),
                     env.getServiceAccountId(), jwk, config.getAicScope(), http, mapper);
         });
@@ -82,7 +82,7 @@ public class AicCredentialService {
     }
 
     private RSAKey loadJwk(String secretName) {
-        String localDir = config.getLocalSecretsDir();
+        String localDir = config.getLocalJwkDir();
         if (localDir != null && !localDir.isBlank()) {
             return loadJwkFromLocalFile(localDir, secretName);
         }
@@ -96,8 +96,8 @@ public class AicCredentialService {
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Failed to load/parse AIC JWK from local file '" + path
-                            + "' (localSecretsDir mode — this is meant for local dev before Key Vault exists)",
-                    e);
+                            + " " + e.toString()
+                    );
         }
     }
 

@@ -52,6 +52,8 @@ public class AicEntityReader {
             if (cookie != null) {
                 url += "&_pagedResultsCookie=" + URLEncoder.encode(cookie, StandardCharsets.UTF_8);
             }
+            
+            logger.info("Sending request to {}", url);
 
             HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                     .header("Authorization", "Bearer " + auth.getToken())

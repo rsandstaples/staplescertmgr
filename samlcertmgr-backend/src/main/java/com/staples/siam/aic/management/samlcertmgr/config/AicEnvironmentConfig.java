@@ -16,7 +16,7 @@ public class AicEnvironmentConfig {
     @NotEmpty
     private String serviceAccountId;
     @NotEmpty
-    private String jwkSecretName;
+    private String jwkName;
 
     @JsonProperty
     public String getLabel() {
@@ -59,13 +59,13 @@ public class AicEnvironmentConfig {
     }
 
     @JsonProperty
-    public String getJwkSecretName() {
-        return jwkSecretName;
+    public String getJwkName() {
+        return jwkName;
     }
 
     @JsonProperty
-    public void setJwkSecretName(String v) {
-        jwkSecretName = v;
+    public void setJwkName(String v) {
+    	jwkName = v;
     }
 
     /** Root-realm token endpoint — NOT realm-scoped, per the working AIC integration. */
