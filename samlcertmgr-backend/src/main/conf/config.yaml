@@ -25,6 +25,7 @@ cookieSecure: true
 entra:
   tenantId: b101f7ab-56ac-485f-b397-5279698fdf7d
   clientId: fb777bd0-1548-4baa-8fac-6b2b6fe4c2e9
+  clientSecret: ${AZURE_CLIENT_SECRET}
   redirectUri: http://localhost:8080/api/login/oauth2/code/azure
   groupClaimName: groups
   authGroupId: 9ded6e24-caa7-4776-aa65-f769608d024a
