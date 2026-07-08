@@ -56,22 +56,22 @@ public class SamlMetadataService {
 
     /** One row in the console table. */
     public record EntitySummary(
-            String  entityId,
-            String  role,               // IDP / SP / UNKNOWN
-            String  signingSubjectCn,
-            String  signingIssuerCn,
-            String  signingSerial,
-            String  expires,            // yyyy-MM-dd of the latest signing cert
-            Long    daysToExpiry,       // null when there is no signing cert
+            String entityId,
+            String role, // IDP / SP / UNKNOWN
+            String signingSubjectCn,
+            String signingIssuerCn,
+            String signingSerial,
+            String expires, // yyyy-MM-dd of the latest signing cert
+            Long daysToExpiry, // null when there is no signing cert
             boolean expired,
-            boolean expiringSoon,       // within WARN_DAYS and not yet expired
-            int     signingCertCount,
-            String  parseError) {
+            boolean expiringSoon, // within WARN_DAYS and not yet expired
+            int signingCertCount,
+            String parseError) {
     }
 
     /** A validated, normalized replacement certificate. */
     public record NormalizedCert(
-            String base64Der,           // clean single-blob base64 for embedding in metadata
+            String base64Der, // clean single-blob base64 for embedding in metadata
             String subjectCn,
             String issuerCn,
             String serial,
@@ -89,31 +89,39 @@ public class SamlMetadataService {
         // Expiring first: soonest daysToExpiry at the top, nulls last.
         rows.sort((a, b) -> {
             Long da = a.daysToExpiry(), db = b.daysToExpiry();
-            if (da == null && db == null) return 0;
-            if (da == null) return 1;
-            if (db == null) return -1;
+            if (da == null && db == null)
+                return 0;
+            if (da == null)
+                return 1;
+            if (db == null)
+                return -1;
             return Long.compare(da, db);
         });
         return rows;
     }
+
+    /** Ensures the one-time diagnostic dump below fires once per run, not once per entity. */
+    private final java.util.concurrent.atomic.AtomicBoolean diagnosticsLogged = new java.util.concurrent.atomic.AtomicBoolean(false);
 
     private EntitySummary summarizeOne(JsonNode entry) {
         String rawMetadata = entry.hasNonNull("metadata") ? entry.get("metadata").asText() : null;
         String fallbackId  = entry.path("_id").asText(null);
 
         if (rawMetadata == null || rawMetadata.isBlank()) {
+            logDiagnosticsOnce(entry, "no 'metadata' field found on entity JSON");
             return new EntitySummary(fallbackId, "UNKNOWN", null, null, null,
                     null, null, false, false, 0, "no metadata");
         }
 
         try {
-            Document doc  = parse(rawMetadata);
-            Element  desc = doc.getDocumentElement();
+            Document doc      = parse(rawMetadata);
+            Element  desc     = doc.getDocumentElement();
             String   entityId = attr(desc, "entityID");
-            if (entityId == null) entityId = fallbackId;
+            if (entityId == null)
+                entityId = fallbackId;
 
-            boolean idp = !elementsByLocalName(desc, "IDPSSODescriptor").isEmpty();
-            boolean sp  = !elementsByLocalName(desc, "SPSSODescriptor").isEmpty();
+            boolean idp  = !elementsByLocalName(desc, "IDPSSODescriptor").isEmpty();
+            boolean sp   = !elementsByLocalName(desc, "SPSSODescriptor").isEmpty();
             String  role = idp ? "IDP" : (sp ? "SP" : "UNKNOWN");
 
             List<X509Certificate> signing = decodeSigningCerts(desc);
@@ -141,9 +149,40 @@ public class SamlMetadataService {
                     signing.size(), null);
         } catch (Exception ex) {
             logger.warn("Failed to summarize entity {}: {}", fallbackId, ex.getMessage());
+            logDiagnosticsOnce(entry, "metadata present but failed to parse as XML: "
+                    + ex.getClass().getSimpleName() + ": " + ex.getMessage());
             return new EntitySummary(fallbackId, "UNKNOWN", null, null, null,
                     null, null, false, false, 0, ex.getClass().getSimpleName() + ": " + ex.getMessage());
         }
+    }
+
+    /**
+     * Fires once per SamlMetadataService instance (i.e. once per app run, since
+     * one instance is built at startup) rather than once per entity, to avoid
+     * spamming 100+ near-identical log lines when every entity fails the same
+     * way. Dumps the entity JSON's field names and a snippet of whatever
+     * "metadata" actually contains, to diagnose a shape mismatch against what
+     * this class assumes (raw XML text).
+     */
+    private void logDiagnosticsOnce(JsonNode entry, String reason) {
+        if (!diagnosticsLogged.compareAndSet(false, true)) {
+            return;
+        }
+        java.util.List<String> fieldNames = new java.util.ArrayList<>();
+        entry.fieldNames().forEachRemaining(fieldNames::add);
+
+        String metadataSnippet = "(absent)";
+        if (entry.hasNonNull("metadata")) {
+            String raw = entry.get("metadata").asText();
+            metadataSnippet = raw.substring(0, Math.min(raw.length(), 300));
+        }
+
+        logger.warn("═══ SamlMetadataService diagnostic dump (first failure only) ═══");
+        logger.warn("Reason: {}", reason);
+        logger.warn("Entity JSON top-level fields: {}", fieldNames);
+        logger.warn("First 300 chars of 'metadata' value: {}", metadataSnippet);
+        logger.warn("Full entity JSON (first entity only): {}", entry);
+        logger.warn("═══════════════════════════════════════════════════════════════");
     }
 
     // ----------------------------------------------------------- cert lookup
@@ -152,7 +191,8 @@ public class SamlMetadataService {
     public Optional<String> rawMetadataFor(List<JsonNode> entries, String entityId) {
         for (JsonNode entry : entries) {
             String md = entry.hasNonNull("metadata") ? entry.get("metadata").asText() : null;
-            if (md == null || md.isBlank()) continue;
+            if (md == null || md.isBlank())
+                continue;
             try {
                 String id = attr(parse(md).getDocumentElement(), "entityID");
                 if (entityId.equals(id)) {
@@ -174,7 +214,7 @@ public class SamlMetadataService {
      * are left untouched; the caller is told how many existed.
      */
     public String replaceSigningCert(String metadataXml, String newBase64Der) throws Exception {
-        Document doc = parse(metadataXml);
+        Document      doc     = parse(metadataXml);
         List<Element> certEls = signingX509Elements(doc.getDocumentElement());
         if (certEls.isEmpty()) {
             throw new IllegalStateException("No signing certificate found in metadata to replace");
@@ -210,8 +250,8 @@ public class SamlMetadataService {
                 .replaceAll("-----END CERTIFICATE-----", "")
                 .replaceAll("\\s", "");
         try {
-            byte[] der = Base64.getDecoder().decode(base64);
-            X509Certificate x = (X509Certificate) CertificateFactory.getInstance("X.509")
+            byte[]          der = Base64.getDecoder().decode(base64);
+            X509Certificate x   = (X509Certificate) CertificateFactory.getInstance("X.509")
                     .generateCertificate(new ByteArrayInputStream(der));
             return new NormalizedCert(
                     base64,
@@ -257,12 +297,12 @@ public class SamlMetadataService {
     }
 
     private Element earliestExpiring(List<Element> certEls) {
-        Element best = certEls.get(0);
+        Element best    = certEls.get(0);
         Date    bestExp = null;
         for (Element el : certEls) {
             try {
-                byte[] der = Base64.getMimeDecoder().decode(text(el).replaceAll("\\s", ""));
-                X509Certificate x = (X509Certificate) CertificateFactory.getInstance("X.509")
+                byte[]          der = Base64.getMimeDecoder().decode(text(el).replaceAll("\\s", ""));
+                X509Certificate x   = (X509Certificate) CertificateFactory.getInstance("X.509")
                         .generateCertificate(new ByteArrayInputStream(der));
                 if (bestExp == null || x.getNotAfter().before(bestExp)) {
                     bestExp = x.getNotAfter();
@@ -302,7 +342,7 @@ public class SamlMetadataService {
 
     private static List<Element> elementsByLocalName(Element scope, String local) {
         List<Element> out = new ArrayList<>();
-        NodeList all = scope.getElementsByTagName("*");
+        NodeList      all = scope.getElementsByTagName("*");
         for (int i = 0; i < all.getLength(); i++) {
             Node n = all.item(i);
             if (n.getNodeType() == Node.ELEMENT_NODE && local.equals(localName((Element) n))) {
@@ -314,9 +354,10 @@ public class SamlMetadataService {
 
     private static String localName(Element el) {
         String ln = el.getLocalName();
-        if (ln != null) return ln;
+        if (ln != null)
+            return ln;
         String tag = el.getTagName();
-        int i = tag.indexOf(':');
+        int    i   = tag.indexOf(':');
         return i >= 0 ? tag.substring(i + 1) : tag;
     }
 
@@ -330,7 +371,8 @@ public class SamlMetadataService {
     }
 
     private static String cn(String dn) {
-        if (dn == null) return null;
+        if (dn == null)
+            return null;
         Matcher m = CN.matcher(dn);
         return m.find() ? m.group(1) : dn;
     }
